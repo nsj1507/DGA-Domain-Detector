@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/dga-domain-detector-design-system/"
+title = "DGA Domain Detector Design System"
+description = "A calm analyst-workspace design system extracted from DGA Domain Detector: deep teal instrumentation surfaces, warm paper backgrounds, acid-lime signal accents, Manrope UI typography, DM Mono technical labels, compact cards, and transparent readouts for cybersecurity domain analysis."
+version = "1.0.0"
+id = "artifacts/dga-domain-detector-design-system"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/dga-domain-detector-design-system/" ]
+localPort = 24701
+
+[services.development]
+run = "pnpm --filter @workspace/dga-domain-detector-design-system run dev"
+
+[services.env]
+PORT = "24701"
+BASE_PATH = "/dga-domain-detector-design-system/"

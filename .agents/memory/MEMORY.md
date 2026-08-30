@@ -1,0 +1,1 @@
+- [Python runtime paths](python-runtime-paths.md) — managed artifact scripts run from package directories while the shared Python runtime lives at the workspace root.

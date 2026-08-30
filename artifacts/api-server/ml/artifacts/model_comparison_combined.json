@@ -1,0 +1,54 @@
+{
+  "model_name": "NeuralNetwork",
+  "feature_count": 10019,
+  "handcrafted_feature_count": 19,
+  "ngram_feature_count": 10000,
+  "used_handcrafted_features": true,
+  "results": {
+    "RandomForest": {
+      "accuracy": 0.9784851469749598,
+      "precision": 0.9783352337514253,
+      "recall": 0.9786395686437163,
+      "f1_score": 0.9784873775335649,
+      "false_positive_rate": 0.021669258683255574,
+      "false_negative_rate": 0.0213604313562837,
+      "true_negatives": 9436,
+      "false_positives": 209,
+      "false_negatives": 206,
+      "true_positives": 9438,
+      "inference_time_sec": 0.2789,
+      "selection_score": 0.9785097671875684,
+      "train_time_sec": 36.55
+    },
+    "LinearSVM": {
+      "accuracy": 0.9864171289335891,
+      "precision": 0.9864164247200332,
+      "recall": 0.9864164247200332,
+      "f1_score": 0.9864164247200332,
+      "false_positive_rate": 0.013582166925868326,
+      "false_negative_rate": 0.01358357527996682,
+      "true_negatives": 9514,
+      "false_positives": 131,
+      "false_negatives": 131,
+      "true_positives": 9513,
+      "inference_time_sec": 0.0021,
+      "selection_score": 0.9864165655627444,
+      "train_time_sec": 1.33
+    },
+    "NeuralNetwork": {
+      "accuracy": 0.9871947742236508,
+      "precision": 0.9887652137730157,
+      "recall": 0.9855868934052261,
+      "f1_score": 0.9871734953523394,
+      "false_positive_rate": 0.01119751166407465,
+      "false_negative_rate": 0.014413106594773952,
+      "true_negatives": 9537,
+      "false_positives": 108,
+      "false_negatives": 139,
+      "true_positives": 9505,
+      "inference_time_sec": 0.0785,
+      "selection_score": 0.9869405283055691,
+      "train_time_sec": 75.41
+    }
+  }
+}

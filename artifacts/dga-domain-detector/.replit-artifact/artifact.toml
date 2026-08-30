@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "DGA Domain Detector"
+description = "A cybersecurity web application that analyzes domain names with a retrained machine learning pipeline using handcrafted lexical features and character n-grams to identify algorithmically generated malicious domains."
+version = "1.0.0"
+id = "artifacts/dga-domain-detector"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19730
+
+[services.development]
+run = "pnpm --filter @workspace/dga-domain-detector run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dga-domain-detector", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/dga-domain-detector/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19730"
+BASE_PATH = "/"

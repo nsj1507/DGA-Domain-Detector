@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: detection
+    description: DGA domain detection operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /predict:
+    post:
+      operationId: predictDomain
+      tags: [detection]
+      summary: Analyze a domain
+      description: Extracts the combined 19 handcrafted and 10,000 TF-IDF features, then classifies the domain with the trained detector.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainPredictionInput"
+      responses:
+        "200":
+          description: Domain analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainPrediction"
+        "400":
+          description: Invalid domain input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Detector model is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /model-info:
+    get:
+      operationId: getModelInfo
+      tags: [detection]
+      summary: Get detector model information
+      description: Returns the active model, feature representation, vectorizer configuration, and evaluation metrics.
+      responses:
+        "200":
+          description: Active model information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelInfo"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +79,135 @@ components:
           type: string
       required:
         - status
+    DomainPredictionInput:
+      type: object
+      properties:
+        domain:
+          type: string
+          minLength: 1
+          maxLength: 253
+      required:
+        - domain
+    DomainPrediction:
+      type: object
+      properties:
+        domain:
+          type: string
+        normalized_domain:
+          type: string
+        prediction:
+          type: string
+          enum: [Legitimate, Malicious]
+        confidence:
+          type: ["number", "null"]
+        confidence_is_calibrated:
+          type: boolean
+        decision_score:
+          type: ["number", "null"]
+        risk_level:
+          type: string
+          enum: [Low, Medium, High]
+        reasons:
+          type: array
+          items:
+            type: string
+        explainability_method:
+          type: string
+        features:
+          type: object
+          additionalProperties:
+            type: number
+        feature_count:
+          type: number
+        model_name:
+          type: string
+      required:
+        - domain
+        - normalized_domain
+        - prediction
+        - confidence
+        - confidence_is_calibrated
+        - decision_score
+        - risk_level
+        - reasons
+        - explainability_method
+        - features
+        - feature_count
+        - model_name
+    MetricSet:
+      type: object
+      properties:
+        accuracy:
+          type: number
+        precision:
+          type: number
+        recall:
+          type: number
+        f1_score:
+          type: number
+        false_positive_rate:
+          type: number
+        false_negative_rate:
+          type: number
+      required:
+        - accuracy
+        - precision
+        - recall
+        - f1_score
+        - false_positive_rate
+        - false_negative_rate
+    ModelInfo:
+      type: object
+      properties:
+        model_name:
+          type: string
+        feature_count:
+          type: number
+        handcrafted_feature_count:
+          type: number
+        ngram_feature_count:
+          type: number
+        vectorizer:
+          type: object
+          properties:
+            analyzer:
+              type: string
+            ngram_min:
+              type: number
+            ngram_max:
+              type: number
+            min_df:
+              type: number
+            max_features:
+              type: number
+          required:
+            - analyzer
+            - ngram_min
+            - ngram_max
+            - min_df
+            - max_features
+        metrics:
+          $ref: "#/components/schemas/MetricSet"
+        explainability_method:
+          type: string
+        handcrafted_feature_names:
+          type: array
+          items:
+            type: string
+      required:
+        - model_name
+        - feature_count
+        - handcrafted_feature_count
+        - ngram_feature_count
+        - vectorizer
+        - metrics
+        - explainability_method
+        - handcrafted_feature_names
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

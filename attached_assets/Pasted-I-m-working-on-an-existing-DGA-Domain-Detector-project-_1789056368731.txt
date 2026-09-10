@@ -1,0 +1,230 @@
+I’m working on an existing DGA Domain Detector project. Please inspect the existing codebase first and MODIFY the current implementation rather than rebuilding it from scratch.
+
+### Main issue to fix
+
+During our project review, the professor tested several DGA-like domains, including short domains, and some were incorrectly classified as Legitimate.
+
+Our teammate suspects the detector is biased by domain length and that the training dataset contains too few short DGA domains.
+
+### 1. Inspect the existing domain-length handling
+
+Search the ENTIRE codebase, including frontend, backend, ML/training code, and configuration, for any hardcoded rule or logic that automatically classifies short domains as Legitimate.
+
+Examples of logic to look for:
+
+* `if len(domain) < ...`
+* `domain_length < ...`
+* minimum-length thresholds that directly determine the label
+* any frontend/backend special case for short domains
+
+If such a rule exists, REMOVE it.
+
+IMPORTANT:
+
+* Do NOT remove `domain_length` as an ML feature.
+* Domain length should remain one of the features used by the model.
+* The model should learn from the data instead of using a hardcoded rule.
+
+If no hardcoded rule exists, DO NOT invent one. Instead, investigate whether the training-data distribution is causing the model to associate short domains with Legitimate.
+
+### 2. Investigate the existing dataset
+
+Inspect the current training and test datasets and report:
+
+* Number of Legitimate vs DGA samples
+* Minimum/maximum/median domain length for each class
+* Number of DGA domains with length <= 10
+* Number of Legitimate domains with length <= 10
+* Whether the dataset is heavily biased toward longer DGA domains
+* Whether TLD distribution may also be creating a shortcut for the model
+
+Do NOT modify the test set.
+
+### 3. Add SHORT, REAL DGA examples
+
+Increase representation of short DGA domains in the TRAINING data.
+
+Use VERIFIED DGA examples from real/public DGA datasets or documented DGA families. Do NOT generate random domains with ChatGPT and label them as DGA.
+
+The added samples should include genuinely short DGA domains, including domains around the 8–12 character range where possible.
+
+Keep the class distribution reasonably balanced.
+
+IMPORTANT:
+
+* Do not add test-set samples to training.
+* Do not duplicate existing train/test domains.
+* Do not create synthetic labels without a reliable source.
+* Keep track of the source/family of added DGA samples where possible.
+
+### 4. Preserve the existing ML architecture
+
+Do not unnecessarily replace the current feature pipeline.
+
+The existing project uses:
+
+#### Handcrafted features
+
+19 features including:
+
+* domain_length
+* num_digits
+* digit_ratio
+* num_letters
+* num_vowels
+* num_consonants
+* vowel_ratio
+* consonant_ratio
+* num_special_chars
+* special_char_ratio
+* hyphen_count
+* dot_count
+* subdomain_count
+* unique_chars
+* unique_char_ratio
+* shannon_entropy
+* max_consecutive_digits
+* max_consecutive_consonants
+* character_transitions
+
+#### TF-IDF
+
+Character-level TF-IDF with:
+
+* analyzer = character
+* ngram_range = (2,4)
+* min_df = 2
+* max_features = 10000
+
+The combined model therefore uses approximately 10,019 features.
+
+Keep this architecture unless there is a concrete technical reason to change it.
+
+### 5. Retrain the models
+
+After correcting the training data:
+
+Train the existing:
+
+* Random Forest
+* Linear SVM
+* Neural Network / MLP
+
+Compare:
+
+* Accuracy
+* Precision
+* Recall
+* F1-score
+* False Positive Rate
+* False Negative Rate
+* Confusion Matrix
+
+Since this is a security detection system, pay particular attention to RECALL and FALSE NEGATIVES.
+
+### 6. Specifically evaluate SHORT domains
+
+Create a separate evaluation subset for domains with length <= 10.
+
+Report:
+
+* Short-domain sample count
+* Short-domain DGA recall
+* Short-domain DGA false-negative rate
+* Short-domain Legitimate false-positive rate
+
+Compare these results with the previous model.
+
+The goal is NOT simply to make every short domain malicious. The goal is for short legitimate domains and short DGA domains to be distinguished using the learned features.
+
+### 7. Check for data leakage
+
+Before finalizing:
+
+* Verify there are no exact domain duplicates between train and test.
+* Verify that newly added training domains are not present in the test set.
+* Avoid using test data during training, vectorizer fitting, or model selection.
+* Fit preprocessing/vectorization only on training data where appropriate.
+
+### 8. Verify model inference
+
+Make sure the exact same feature extraction and feature ordering used during training is used during prediction.
+
+The current combined representation should remain:
+
+19 handcrafted features + 10,000 TF-IDF features = 10,019 features.
+
+Verify this rather than assuming it.
+
+### 9. Test with representative domains
+
+After retraining, test the detector with:
+
+* normal short legitimate domains
+* normal longer legitimate domains
+* short DGA domains from the training/source data
+* longer DGA domains
+* word-based/pseudo-word DGA examples
+* random-looking DGA examples
+
+Do NOT claim that an arbitrary ChatGPT-generated domain is definitely DGA unless it is verified.
+
+### 10. Keep the explanation honest
+
+The current backend may return empty `reasons` when using the MLP because the model does not expose `coef_`.
+
+Do not fake explanations.
+
+If explanation functionality is currently implemented, make sure it accurately reflects the actual features/model. If it cannot provide a reliable reason for the neural-network prediction, return a clear model-based explanation instead of inventing feature importance.
+
+Also, if the MLP returns `predict_proba()`, do not call it “calibrated confidence” unless calibration has actually been performed. Label it as model probability/prediction probability.
+
+### 11. Risk level
+
+Do not make risk level simply:
+
+`DGA = High`
+`Legitimate = Low`
+
+If the UI displays risk, base it on the model's prediction probability and clearly define the thresholds.
+
+Do not introduce arbitrary thresholds without documenting them.
+
+### 12. Health check
+
+Make sure the backend health endpoint actually verifies that the required model/vectorizer artifacts are loaded and usable, rather than returning healthy merely because the API process is running.
+
+### 13. Frontend
+
+Do not redesign the frontend unnecessarily.
+
+Keep the existing React + Vite + TypeScript structure.
+
+Make sure the frontend correctly displays:
+
+* predicted classification
+* prediction probability
+* risk level
+* explanation/reason where available
+* validation errors
+
+The UI should clearly communicate that the detector analyzes the domain itself using lexical/statistical + ML features.
+
+### 14. Final verification
+
+After making changes, give me a concise report containing:
+
+1. What caused the short-domain misclassification.
+2. Whether a hardcoded length rule existed.
+3. How many short DGA samples were added.
+4. Where the added samples came from.
+5. Before vs after overall metrics.
+6. Before vs after short-domain metrics.
+7. Which model is now selected and why.
+8. Any remaining limitations.
+9. Exact files changed.
+10. Exact commands needed to retrain/run the project.
+
+Do not claim the detector can detect every possible DGA family. Clearly state if unseen DGA families remain a limitation.
+
+Most importantly: FIX THE EXISTING PROJECT. Do not replace the current ML pipeline or fabricate data just to improve the metrics.

@@ -132,6 +132,84 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+export const getHealthStatusUrl = () => {
+
+
+
+
+  return `/api/health`
+}
+
+/**
+ * Returns server health status and verifies the detector artifacts are usable.
+ * @summary Health check alias
+ */
+export const healthStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<HealthStatus> => {
+
+  return customFetch<HealthStatus>(getHealthStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getHealthStatusQueryKey = () => {
+    return [
+    `/api/health`
+    ] as const;
+    }
+
+
+export const getHealthStatusQueryOptions = <TData = Awaited<ReturnType<typeof healthStatus>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getHealthStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof healthStatus>>> = ({ signal }) => healthStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type HealthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof healthStatus>>>
+export type HealthStatusQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Health check alias
+ */
+
+export function useHealthStatus<TData = Awaited<ReturnType<typeof healthStatus>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getHealthStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getPredictDomainUrl = () => {
 
 

@@ -18,6 +18,15 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * Returns server health status and verifies the detector artifacts are usable.
+ * @summary Health check alias
+ */
+export const HealthStatusResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
  * Extracts the combined 19 handcrafted and 10,000 TF-IDF features, then classifies the domain with the trained detector.
  * @summary Analyze a domain
  */
@@ -35,6 +44,7 @@ export const PredictDomainResponse = zod.object({
   "prediction": zod.enum(['Legitimate', 'Malicious']),
   "confidence": zod.number().nullable(),
   "confidence_is_calibrated": zod.boolean(),
+  "malicious_probability": zod.number().nullable(),
   "decision_score": zod.number().nullable(),
   "risk_level": zod.enum(['Low', 'Medium', 'High']),
   "reasons": zod.array(zod.string()),

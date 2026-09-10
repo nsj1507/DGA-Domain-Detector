@@ -17,6 +17,8 @@ export interface DomainPrediction {
   confidence: number | null;
   confidence_is_calibrated: boolean;
   /** @nullable */
+  malicious_probability: number | null;
+  /** @nullable */
   decision_score: number | null;
   risk_level: DomainPredictionRiskLevel;
   reasons: string[];

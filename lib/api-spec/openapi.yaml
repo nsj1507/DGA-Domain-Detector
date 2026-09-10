@@ -26,6 +26,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /health:
+    get:
+      operationId: healthStatus
+      tags: [health]
+      summary: Health check alias
+      description: Returns server health status and verifies the detector artifacts are usable.
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: Detector artifacts are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /predict:
     post:
       operationId: predictDomain
@@ -102,6 +121,8 @@ components:
           type: ["number", "null"]
         confidence_is_calibrated:
           type: boolean
+        malicious_probability:
+          type: ["number", "null"]
         decision_score:
           type: ["number", "null"]
         risk_level:
@@ -127,6 +148,7 @@ components:
         - prediction
         - confidence
         - confidence_is_calibrated
+        - malicious_probability
         - decision_score
         - risk_level
         - reasons

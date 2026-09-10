@@ -26,6 +26,9 @@ MODEL_FILE = MODEL_DIR / "model_combined.pkl"
 VECTOR_FILE = MODEL_DIR / "tfidf_vectorizer.pkl"
 METRICS_FILE = MODEL_DIR / "model_comparison_combined.json"
 METADATA_FILE = MODEL_DIR / "feature_metadata.json"
+EXPECTED_FEATURE_COUNT = 19 + 10_000
+HIGH_RISK_THRESHOLD = 0.75
+MEDIUM_RISK_THRESHOLD = 0.45
 
 DOMAIN_PATTERN = re.compile(
     r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -57,6 +60,27 @@ class DetectorService:
         self.vectorizer = joblib.load(VECTOR_FILE)
         self.metrics = json.loads(METRICS_FILE.read_text(encoding="utf-8"))
         self.metadata = json.loads(METADATA_FILE.read_text(encoding="utf-8"))
+        self._validate_loaded_artifacts()
+
+    def _validate_loaded_artifacts(self) -> None:
+        """Fail health and inference if artifacts drift from training metadata."""
+        assert self.model is not None
+        assert self.vectorizer is not None
+        assert self.metrics is not None
+        assert self.metadata is not None
+
+        if len(FEATURE_NAMES) != 19:
+            raise RuntimeError("The handcrafted feature extractor must expose exactly 19 features.")
+        if self.metrics.get("feature_count") != EXPECTED_FEATURE_COUNT:
+            raise RuntimeError("The selected model metadata is not the combined 10,019-feature representation.")
+        if self.metadata.get("feature_order") != "handcrafted_then_tfidf":
+            raise RuntimeError("The feature order does not match the training pipeline.")
+        if self.metadata.get("handcrafted_feature_names") != FEATURE_NAMES:
+            raise RuntimeError("The handcrafted feature order does not match the training pipeline.")
+        if len(getattr(self.vectorizer, "vocabulary_", {})) != 10_000:
+            raise RuntimeError("The loaded TF-IDF vectorizer does not contain exactly 10,000 features.")
+        if int(getattr(self.model, "n_features_in_", -1)) != EXPECTED_FEATURE_COUNT:
+            raise RuntimeError("The loaded model does not accept exactly 10,019 features.")
 
     def model_info(self) -> dict[str, Any]:
         self.load()
@@ -116,6 +140,7 @@ class DetectorService:
         predicted_label = int(self.model.predict(features)[0])
         decision_score = self._decision_score(features)
         confidence = self._confidence(features)
+        malicious_probability = self._malicious_probability(features)
         prediction = "Malicious" if predicted_label == 1 else "Legitimate"
         feature_values = {
             name: float(value)
@@ -130,8 +155,9 @@ class DetectorService:
             # The selected MLP exposes probabilities, but no calibration
             # artifact was trained, so these remain raw model probabilities.
             "confidence_is_calibrated": False,
+            "malicious_probability": malicious_probability,
             "decision_score": decision_score,
-            "risk_level": "High" if predicted_label == 1 else "Low",
+            "risk_level": self._risk_level(malicious_probability),
             "reasons": self._reasons(features, predicted_label),
             "explainability_method": self._explainability_method(),
             "features": feature_values,
@@ -159,6 +185,27 @@ class DetectorService:
             return None
         probabilities = np.asarray(self.model.predict_proba(features))[0]
         return float(np.max(probabilities))
+
+    def _malicious_probability(self, features: np.ndarray) -> float | None:
+        assert self.model is not None
+        if not hasattr(self.model, "predict_proba"):
+            return None
+        probabilities = np.asarray(self.model.predict_proba(features))[0]
+        classes = np.asarray(getattr(self.model, "classes_", [0, 1]))
+        malicious_positions = np.flatnonzero(classes == 1)
+        if not malicious_positions.size:
+            return None
+        return float(probabilities[malicious_positions[0]])
+
+    def _risk_level(self, malicious_probability: float | None) -> str:
+        """Risk bands are probability-based, not direct aliases of the label."""
+        if malicious_probability is None:
+            return "Medium"
+        if malicious_probability >= HIGH_RISK_THRESHOLD:
+            return "High"
+        if malicious_probability >= MEDIUM_RISK_THRESHOLD:
+            return "Medium"
+        return "Low"
 
     def _explainability_method(self) -> str:
         assert self.model is not None
@@ -213,7 +260,21 @@ router = APIRouter(prefix="/api")
 
 @router.get("/healthz")
 def healthz() -> dict[str, str]:
+    try:
+        service.load()
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Detector artifacts are unavailable: {error}",
+        ) from error
     return {"status": "ok"}
+
+
+@router.get("/health", response_model=dict[str, str])
+def health() -> dict[str, str]:
+    return healthz()
 
 
 @router.post("/predict")

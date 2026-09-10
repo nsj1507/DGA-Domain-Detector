@@ -1,0 +1,273 @@
+We identified several issues during our project review. I want you to fix the implementation and retrain the model properly, but DO NOT make changes just to improve the reported accuracy. Preserve a scientifically valid evaluation.
+
+## 1. REMOVE ANY HARD-CODED LENGTH CLASSIFICATION
+
+Search the ENTIRE backend and prediction pipeline for rules such as:
+
+* domain length < 11 → Legitimate
+* short domain → Legitimate
+* any individual feature directly determining the final prediction
+
+Remove any rule that bypasses the ML model.
+
+A domain's length must remain one of the 19 handcrafted features, but it must NOT directly determine the prediction.
+
+Every valid domain should go through:
+
+domain
+→ normalization
+→ 19 handcrafted features
+→ 10,000 TF-IDF features
+→ combined 10,019 features
+→ trained classifier
+→ prediction
+
+Do NOT remove legitimate input validation.
+
+## 2. ADDRESS THE SHORT-DGA DATASET PROBLEM
+
+Our current dataset contains very few short DGA domains. This creates a strong distribution bias:
+
+Training data currently has approximately:
+
+* Legitimate domains ≤10 characters: 9,085
+* DGA domains ≤10 characters: 82
+
+The model can therefore learn that short domains are usually legitimate.
+
+I want this addressed properly.
+
+DO NOT simply generate arbitrary random strings with ChatGPT and label them as DGA.
+
+Instead, add short DGA domains from a legitimate, documented DGA dataset/source where the domains are actually labeled as DGA-generated.
+
+Preferably include multiple DGA families rather than many examples from only one family.
+
+Before adding anything, document:
+
+* source/dataset name
+* DGA family
+* number of short domains added
+* length range
+* why they are considered DGA
+
+## 3. AVOID DATA LEAKAGE
+
+This is critical.
+
+Do NOT add new short DGA domains to both training and test data.
+
+Create a clean evaluation setup:
+
+Training:
+
+* original training data
+* additional verified short DGA training examples
+
+Validation/test:
+
+* keep an untouched portion of the original test data
+* create a separate short-DGA evaluation subset that was NOT used during training
+
+If possible, also create an unseen-DGA-family evaluation set where the DGA family is not represented in training.
+
+Clearly document which domains/families belong to training and which belong only to evaluation.
+
+## 4. RETRAIN ALL THREE MODELS
+
+Retrain:
+
+* Random Forest
+* Linear SVM
+* Neural Network
+
+Use the same 10,019-feature representation:
+
+19 handcrafted features + 10,000 character-level TF-IDF features.
+
+If feature scaling is introduced for the Neural Network, fit the scaler ONLY on the training data and apply the exact same scaler during validation, testing, and prediction.
+
+Do not leak test information into training.
+
+## 5. EVALUATE MORE THAN OVERALL ACCURACY
+
+For every model, report:
+
+* Accuracy
+* Precision
+* Recall
+* F1-score
+* False Positive Rate (FPR)
+* False Negative Rate (FNR)
+* Confusion matrix
+
+Additionally report performance separately for:
+
+A. All test domains
+B. Short domains (≤10 characters)
+C. Longer domains
+D. Unseen DGA families, if an unseen-family test set can be created
+
+This is important because our professor specifically demonstrated a potential failure case using DGA-looking domains.
+
+## 6. COMPARE BEFORE VS AFTER
+
+Create a comparison such as:
+
+```
+                     Before       After
+```
+
+Overall accuracy
+Overall F1
+Short-DGA recall
+Short-DGA FNR
+Overall FPR
+Overall FNR
+
+Do not select the new model just because its overall accuracy is higher.
+
+Our priority for the detector is to reduce false negatives while maintaining an acceptable false-positive rate.
+
+Document any tradeoff.
+
+## 7. DO NOT USE DOMAIN LENGTH AS A SHORTCUT
+
+Check whether domain length is disproportionately important.
+
+The purpose of the handcrafted features is to provide multiple signals such as:
+
+* domain length
+* number of digits
+* digit ratio
+* number of letters
+* vowel ratio
+* consonant ratio
+* special-character ratio
+* unique-character ratio
+* Shannon entropy
+* maximum consecutive digits
+* maximum consecutive consonants
+* character transitions
+* etc.
+
+The model should learn from the combination of features rather than relying on a single threshold.
+
+## 8. CHECK TLD / DATASET BIAS
+
+Investigate whether the model is relying heavily on TLD patterns because the legitimate and DGA datasets have different TLD distributions.
+
+Do not silently remove the TLD.
+
+Instead:
+
+* report the issue
+* analyze TLD distribution
+* test whether performance changes significantly across TLDs
+* ensure the model is not simply learning "certain TLD = malicious"
+
+If appropriate, evaluate the model on a balanced TLD subset.
+
+## 9. FIX EXPLAINABILITY
+
+Our selected model is currently a Neural Network, so the existing LinearSVC coefficient-based explanation does not work.
+
+Do NOT return fake reasons.
+
+If technically feasible, implement a model-appropriate explainability method such as SHAP or another validated feature-attribution approach.
+
+The explanation should identify meaningful contributing features for the individual prediction.
+
+If reliable per-prediction attribution cannot be implemented, clearly label the UI section as "Domain Characteristics" instead of claiming those features caused the prediction.
+
+Do not fabricate explanations.
+
+## 10. FIX MODEL PROBABILITY TERMINOLOGY
+
+The Neural Network's predict_proba() output must be labeled as:
+
+"Model Probability"
+
+or another technically accurate term.
+
+Do not call it "calibrated confidence" unless a calibration procedure has actually been trained and evaluated.
+
+If calibration is added later, evaluate calibration separately.
+
+## 11. FIX RISK LEVEL
+
+Currently risk level should not simply be:
+
+DGA → High
+Legitimate → Low
+
+If we keep Low/Medium/High, derive it from a documented thresholding strategy based on validation data.
+
+Otherwise remove risk level rather than presenting a misleading value.
+
+## 12. FIX HEALTH CHECK
+
+The /api/healthz endpoint should actually verify that the required model and preprocessing artifacts are loaded and ready.
+
+It should not return "ok" merely because the FastAPI process is running.
+
+The frontend should show the detector as unavailable when the model/vectorizer cannot be loaded.
+
+## 13. VERIFY THE FINAL INFERENCE PIPELINE
+
+After retraining, verify that:
+
+Training:
+19 handcrafted + 10,000 TF-IDF = 10,019
+
+Prediction:
+19 handcrafted + 10,000 TF-IDF = 10,019
+
+The feature order must be identical.
+
+The same:
+
+* normalization
+* feature extraction
+* TF-IDF vectorizer
+* scaler, if used
+
+must be applied during prediction.
+
+## 14. TEST REAL EXAMPLES
+
+After the changes, test:
+
+* several normal short legitimate domains
+* several verified short DGA domains
+* several longer legitimate domains
+* several longer DGA domains
+* at least one DGA family that was not used for training, if available
+
+Show the actual predictions and probabilities.
+
+Do not use dummy results.
+
+## 15. FINAL DELIVERABLE
+
+When finished, give me:
+
+1. Final selected model
+2. Final feature count
+3. Training dataset size
+4. Number of added short DGA domains
+5. DGA families represented in training
+6. DGA families reserved for unseen evaluation
+7. Full model comparison metrics
+8. Before-vs-after comparison
+9. Short-domain performance
+10. Unseen-family performance
+11. Final false-positive rate
+12. Final false-negative rate
+13. List of all new/modified files
+14. Exact model/vectorizer/scaler artifacts used by FastAPI
+15. Confirmation that the deployed prediction endpoint uses the NEW retrained model
+
+Do not overwrite the old model. Save the corrected model and preprocessing artifacts separately so we can compare the versions.
+
+Do not claim that the detector can detect every DGA. Clearly document limitations and generalization performance.

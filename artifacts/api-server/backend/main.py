@@ -147,7 +147,7 @@ class DetectorService:
                 ),
             )
 
-        predicted_label = int(self.model.predict(features)[0])
+        predicted_label = self._predicted_label(features)
         prediction = self._prediction_name(predicted_label)
         decision_score = self._decision_score(features)
         confidence = self._confidence(features)
@@ -181,6 +181,23 @@ class DetectorService:
         if prediction not in {"Legitimate", "Malicious"}:
             raise RuntimeError(f"Unknown model output label: {predicted_label}")
         return prediction
+
+    def _predicted_label(self, features: np.ndarray) -> int:
+        """Return the model label while guarding against probability-index drift."""
+        assert self.model is not None
+        predicted_label = int(self.model.predict(features)[0])
+        if not hasattr(self.model, "predict_proba"):
+            return predicted_label
+
+        probabilities = np.asarray(self.model.predict_proba(features))[0]
+        classes = np.asarray(self.model.classes_)
+        argmax_label = int(classes[int(np.argmax(probabilities))])
+        if predicted_label != argmax_label:
+            raise RuntimeError(
+                "The model prediction disagrees with predict_proba argmax; "
+                "refusing to return a potentially reversed class."
+            )
+        return predicted_label
 
     def _decision_score(self, features: np.ndarray) -> float | None:
         assert self.model is not None

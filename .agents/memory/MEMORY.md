@@ -1,1 +1,2 @@
 - [Python runtime paths](python-runtime-paths.md) — managed artifact scripts run from package directories while the shared Python runtime lives at the workspace root.
+- [DGA short-domain coverage](dga-short-domain-coverage.md) — source positives lacked 1–6 character labels, so short-DGA evaluation must remain explicit.

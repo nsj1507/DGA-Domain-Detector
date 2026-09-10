@@ -9,6 +9,7 @@ the same feature order.
 from __future__ import annotations
 
 import json
+import random
 import time
 import warnings
 from pathlib import Path
@@ -27,6 +28,7 @@ from sklearn.metrics import (
 )
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import LinearSVC
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from feature_extraction import (
     FEATURE_NAMES,
@@ -45,6 +47,72 @@ METADATA_FILE = ARTIFACT_DIR / "feature_metadata.json"
 
 RANDOM_STATE = 42
 NGRAM_FEATURE_COUNT = 10_000
+SYNTHETIC_DGA_SEED = 20260910
+SYNTHETIC_DGA_PER_LENGTH_BAND = 1_000
+DGA_LENGTH_BANDS = ((4, 6), (7, 10), (11, 15), (16, 25))
+LABEL_MAPPING = {"0": "Legitimate", "1": "Malicious"}
+
+
+def generate_synthetic_dga_domains(
+    per_length_band: int = SYNTHETIC_DGA_PER_LENGTH_BAND,
+    seed: int = SYNTHETIC_DGA_SEED,
+) -> list[str]:
+    """Generate deterministic DGA-like training rows without domain allowlists.
+
+    These rows expand the positive class into lengths absent from the source
+    data. The generator intentionally mixes letters and digits so the model
+    cannot reduce the task to a single "contains a digit" rule.
+    """
+    rng = random.Random(seed)
+    tlds = ("com", "org", "net", "info")
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    consonants = "bcdfghjklmnpqrstvwxyz"
+    digits = "0123456789"
+    generated: list[str] = []
+    seen: set[str] = set()
+
+    for minimum, maximum in DGA_LENGTH_BANDS:
+        while sum(
+            minimum <= len(domain.rsplit(".", 1)[0]) <= maximum
+            for domain in generated
+        ) < per_length_band:
+            length = rng.randint(minimum, maximum)
+            characters: list[str] = []
+            include_digit = rng.random() < 0.65
+            for _ in range(length):
+                roll = rng.random()
+                if roll < 0.20:
+                    character = rng.choice(digits)
+                elif roll < 0.78:
+                    character = rng.choice(consonants)
+                else:
+                    character = rng.choice(letters)
+                characters.append(character)
+            if include_digit and not any(character.isdigit() for character in characters):
+                characters[rng.randrange(length)] = rng.choice(digits)
+            domain = f"{''.join(characters)}.{rng.choice(tlds)}"
+            if domain not in seen:
+                seen.add(domain)
+                generated.append(domain)
+    return generated
+
+
+def augment_training_data(
+    train: pd.DataFrame,
+) -> tuple[pd.Series, np.ndarray, int]:
+    """Add generated positive examples only to cover missing short DGA lengths."""
+    synthetic_domains = generate_synthetic_dga_domains()
+    domains = pd.concat(
+        [train["domain"], pd.Series(synthetic_domains, dtype="string")],
+        ignore_index=True,
+    )
+    labels = np.concatenate(
+        [
+            train["label"].astype(int).to_numpy(),
+            np.ones(len(synthetic_domains), dtype=int),
+        ]
+    )
+    return domains, labels, len(synthetic_domains)
 
 
 def handcrafted_matrix(domains: pd.Series) -> np.ndarray:
@@ -107,10 +175,25 @@ def main() -> None:
     ]:
         raise ValueError("Training and test CSVs must contain domain,label columns")
 
-    vectorizer = joblib.load(VECTOR_FILE)
-    X_train = build_features(train["domain"], vectorizer)
+    train_labels = set(train["label"].astype(int).unique())
+    test_labels = set(test["label"].astype(int).unique())
+    if train_labels != {0, 1} or test_labels != {0, 1}:
+        raise ValueError(
+            f"Expected binary labels {{0, 1}}, got train={train_labels}, test={test_labels}"
+        )
+
+    training_domains, y_train, synthetic_count = augment_training_data(train)
+    vectorizer = TfidfVectorizer(
+        analyzer="char",
+        ngram_range=(2, 4),
+        min_df=2,
+        max_features=NGRAM_FEATURE_COUNT,
+    )
+    vectorizer.fit(training_domains.astype(str).str.lower().str.strip())
+    joblib.dump(vectorizer, VECTOR_FILE)
+
+    X_train = build_features(training_domains, vectorizer)
     X_test = build_features(test["domain"], vectorizer)
-    y_train = train["label"].astype(int).to_numpy()
     y_test = test["label"].astype(int).to_numpy()
 
     expected_feature_count = len(FEATURE_NAMES) + NGRAM_FEATURE_COUNT
@@ -118,7 +201,10 @@ def main() -> None:
         raise ValueError(
             f"Expected {expected_feature_count} features, got {X_train.shape[1]}"
         )
-    print(f"Train shape: {X_train.shape}; test shape: {X_test.shape}")
+    print(
+        f"Train shape: {X_train.shape}; test shape: {X_test.shape}; "
+        f"synthetic DGA rows: {synthetic_count}"
+    )
 
     models = {
         "RandomForest": RandomForestClassifier(
@@ -171,6 +257,9 @@ def main() -> None:
                 "handcrafted_feature_count": len(FEATURE_NAMES),
                 "ngram_feature_count": NGRAM_FEATURE_COUNT,
                 "used_handcrafted_features": True,
+                "label_mapping": LABEL_MAPPING,
+                "training_rows": int(len(training_domains)),
+                "synthetic_dga_rows": synthetic_count,
                 "results": results,
             },
             handle,
@@ -191,6 +280,13 @@ def main() -> None:
                 },
                 "model_name": best_name,
                 "feature_count": expected_feature_count,
+                "label_mapping": LABEL_MAPPING,
+                "synthetic_dga": {
+                    "enabled": True,
+                    "seed": SYNTHETIC_DGA_SEED,
+                    "rows_per_length_band": SYNTHETIC_DGA_PER_LENGTH_BAND,
+                    "length_bands": [list(band) for band in DGA_LENGTH_BANDS],
+                },
             },
             handle,
             indent=2,

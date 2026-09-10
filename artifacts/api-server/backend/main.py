@@ -29,6 +29,7 @@ METADATA_FILE = MODEL_DIR / "feature_metadata.json"
 EXPECTED_FEATURE_COUNT = 19 + 10_000
 HIGH_RISK_THRESHOLD = 0.75
 MEDIUM_RISK_THRESHOLD = 0.45
+EXPECTED_LABEL_MAPPING = {"0": "Legitimate", "1": "Malicious"}
 
 DOMAIN_PATTERN = re.compile(
     r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -77,6 +78,15 @@ class DetectorService:
             raise RuntimeError("The feature order does not match the training pipeline.")
         if self.metadata.get("handcrafted_feature_names") != FEATURE_NAMES:
             raise RuntimeError("The handcrafted feature order does not match the training pipeline.")
+        if self.metadata.get("label_mapping") != EXPECTED_LABEL_MAPPING:
+            raise RuntimeError(
+                "The model label mapping must be exactly 0=Legitimate and 1=Malicious."
+            )
+        classes = [int(value) for value in np.asarray(getattr(self.model, "classes_", [])).tolist()]
+        if classes != [0, 1]:
+            raise RuntimeError(
+                f"The loaded model classes must be [0, 1], got {classes}."
+            )
         if len(getattr(self.vectorizer, "vocabulary_", {})) != 10_000:
             raise RuntimeError("The loaded TF-IDF vectorizer does not contain exactly 10,000 features.")
         if int(getattr(self.model, "n_features_in_", -1)) != EXPECTED_FEATURE_COUNT:
@@ -138,10 +148,10 @@ class DetectorService:
             )
 
         predicted_label = int(self.model.predict(features)[0])
+        prediction = self._prediction_name(predicted_label)
         decision_score = self._decision_score(features)
         confidence = self._confidence(features)
         malicious_probability = self._malicious_probability(features)
-        prediction = "Malicious" if predicted_label == 1 else "Legitimate"
         feature_values = {
             name: float(value)
             for name, value in zip(FEATURE_NAMES, features[0][: len(FEATURE_NAMES)])
@@ -164,6 +174,13 @@ class DetectorService:
             "feature_count": expected_count,
             "model_name": self.metrics["model_name"],
         }
+
+    def _prediction_name(self, predicted_label: int) -> str:
+        assert self.metadata is not None
+        prediction = self.metadata["label_mapping"].get(str(predicted_label))
+        if prediction not in {"Legitimate", "Malicious"}:
+            raise RuntimeError(f"Unknown model output label: {predicted_label}")
+        return prediction
 
     def _decision_score(self, features: np.ndarray) -> float | None:
         assert self.model is not None

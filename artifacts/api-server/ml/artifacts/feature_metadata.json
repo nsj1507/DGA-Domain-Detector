@@ -33,5 +33,32 @@
     "lowercase": true
   },
   "model_name": "NeuralNetwork",
-  "feature_count": 10019
+  "feature_count": 10019,
+  "label_mapping": {
+    "0": "Legitimate",
+    "1": "Malicious"
+  },
+  "synthetic_dga": {
+    "enabled": true,
+    "seed": 20260910,
+    "rows_per_length_band": 1000,
+    "length_bands": [
+      [
+        4,
+        6
+      ],
+      [
+        7,
+        10
+      ],
+      [
+        11,
+        15
+      ],
+      [
+        16,
+        25
+      ]
+    ]
+  }
 }

@@ -1,0 +1,61 @@
+URGENT: Fix the NeuralNetwork DGA classifier. The current model is incorrectly classifying obviously random DGA-style domains as LEGITIMATE. This is a classification/training problem, not a UI problem.
+
+Current incorrect predictions include:
+
+xq7m.com          → currently LEGITIMATE → expected DGA/MALICIOUS
+j4vq.org          → currently LEGITIMATE → expected DGA/MALICIOUS
+z2wx.com          → currently LEGITIMATE → expected DGA/MALICIOUS
+v7ndx5qk9r.net    → currently LEGITIMATE → expected DGA/MALICIOUS
+x9mvt3qpl7.org    → currently LEGITIMATE → expected DGA/MALICIOUS
+k7xq2mvp9a.com    → currently LEGITIMATE → expected DGA/MALICIOUS
+
+Do NOT solve this by hardcoding these domains.
+
+First inspect the existing NeuralNetwork implementation, feature extraction, preprocessing, training data, labels, normalization/scaling, decision threshold, and inference pipeline. Identify why random-looking domains are receiving the LEGITIMATE class.
+
+The classifier must learn domain-level DGA characteristics rather than relying primarily on domain length.
+
+Add meaningful character-based features such as:
+
+Character entropy
+Vowel/consonant ratio
+Digit ratio
+Number of digits
+Number of consonant clusters
+Character transition/unusual bigram statistics
+Ratio of uncommon characters/sequences
+Domain length
+Dictionary/English-word similarity
+Character diversity
+
+Important: short domains must NOT automatically be considered legitimate. A 4-character domain can still be DGA.
+
+Check whether the training dataset is biased toward longer DGA domains. If so, improve the training data with synthetic DGA examples across multiple lengths, including 4–6, 7–10, 11–15, and longer domains.
+
+Include examples similar to:
+
+xq7m.com
+kz9p.net
+v3tx.org
+q8nd.com
+j4vq.org
+t9km.net
+z2wx.com
+v7ndx5qk9r.net
+x9mvt3qpl7.org
+k7xq2mvp9a.com
+
+Also include legitimate short/random-looking domains in the training/test data so the model does not simply learn "short = malicious" or "contains numbers = malicious."
+
+Do not change the UI. Do not fake the prediction. Do not add a list of hardcoded malicious domains. Fix the actual NeuralNetwork classification pipeline.
+
+After fixing it, run a test set containing at least:
+
+10 short DGA domains
+10 medium-length DGA domains
+10 legitimate domains
+5 legitimate short domains
+
+Display the predicted class and confidence for each test case.
+
+The goal is for the model to generalize to previously unseen DGA domains, not merely memorize the examples above.

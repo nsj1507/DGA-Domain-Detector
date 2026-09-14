@@ -1,0 +1,375 @@
+The previous update did NOT fix the core problem.
+
+I have now tested the updated detector with documented QSnatch DGA domains, and it still incorrectly classifies them as Legitimate / Low Risk.
+
+These are known QSnatch DGA-generated domains:
+
+* t2q2r.cf
+* gc9nz.tk
+* 6zltf.rocks
+* qkzccy.net
+* 07tvvc.com
+
+The detector currently returns:
+
+* t2q2r.cf → Legitimate
+* gc9nz.tk → Legitimate
+* 6zltf.rocks → Legitimate
+* qkzccy.net → Legitimate
+* 07tvvc.com → Legitimate
+
+This is a real model failure, not a hypothetical issue.
+
+DO NOT add a hardcoded rule such as:
+
+* short domain = DGA
+* length <= 10 = DGA
+* specific domain = DGA
+* specific TLD = DGA
+
+That would make the demo pass while making the actual DGA detector scientifically invalid.
+
+I need you to DEBUG THE ACTUAL ML PIPELINE and fix the underlying problem.
+
+---
+
+## 1. FIRST: Reproduce the failure
+
+Before changing anything, run the current prediction pipeline on:
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+
+Show internally:
+
+* normalized domain
+* domain length
+* all 19 handcrafted feature values
+* TF-IDF feature vector shape
+* combined feature vector shape
+* model prediction
+* model probability
+
+Confirm which actual model artifact is being loaded.
+
+Do NOT assume that the currently edited training code is the model being used by the API.
+
+---
+
+## 2. Verify the trained model is actually being updated
+
+This is critical.
+
+Inspect:
+
+* model_combined.pkl
+* tfidf_vectorizer.pkl
+* feature_metadata.json
+* model_comparison_combined.json
+* training code
+* backend prediction code
+
+Determine whether the API is actually loading the newly retrained model.
+
+If the model artifact is old, retrain it and replace the artifact used by the API.
+
+Do not merely modify the training script and claim the model has been fixed.
+
+---
+
+## 3. Investigate the short-DGA distribution
+
+Our previous dataset analysis showed a severe imbalance in short domains.
+
+The existing training data contains approximately:
+
+Legitimate domains <=10 characters: 9,085
+DGA domains <=10 characters: 82
+
+This can cause the classifier to learn a shortcut where short domains are strongly associated with Legitimate.
+
+Verify the current dataset after the previous update.
+
+Report:
+
+* total legitimate
+* total DGA
+* DGA <=10
+* legitimate <=10
+* DGA 11–12
+* legitimate 11–12
+* DGA 13–15
+* legitimate 13–15
+
+---
+
+## 4. Verify that REAL short DGA data was actually added
+
+Use verified DGA data.
+
+The following are documented QSnatch DGA examples:
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+
+Use a reputable DGA dataset/source containing QSnatch or equivalent known DGA-family data.
+
+DO NOT generate random strings yourself and label them DGA.
+
+DO NOT simply add the five test examples directly to training.
+
+If these exact five domains are used as evaluation examples, they must remain in an untouched evaluation set.
+
+Add OTHER verified QSnatch/short-DGA samples to training.
+
+---
+
+## 5. IMPORTANT: Do not let the model learn "TLD = DGA"
+
+Our dataset has strong TLD distribution differences between Legitimate and DGA domains.
+
+Do not solve the problem by making `.cf`, `.tk`, `.rocks`, `.net`, etc. automatically DGA.
+
+The model needs to learn lexical/statistical characteristics.
+
+Make sure short DGA training data contains a reasonable variety of TLDs and that legitimate training data also contains unusual TLDs.
+
+---
+
+## 6. Preserve short legitimate domains
+
+This is essential.
+
+The correction must NOT turn the classifier into:
+
+short → DGA
+
+Include legitimate short domains in training and evaluation.
+
+We need to demonstrate that the model can distinguish:
+
+SHORT DGA:
+t2q2r.cf
+gc9nz.tk
+07tvvc.com
+
+from
+
+SHORT LEGITIMATE:
+verified short legitimate domains from the benign dataset.
+
+The goal is better classification, not simply increasing the DGA rate for short domains.
+
+---
+
+## 7. Retrain the actual model
+
+After correcting the training data:
+
+Retrain:
+
+1. Random Forest
+2. Linear SVM
+3. Neural Network / MLP
+
+Use the existing feature pipeline:
+
+19 handcrafted features
+
+*
+
+10,000 character-level TF-IDF features
+
+=
+
+10,019 combined features.
+
+Do not change the architecture unnecessarily.
+
+---
+
+## 8. Use family-aware evaluation
+
+If the dataset provides DGA family labels:
+
+* identify QSnatch
+* measure QSnatch recall separately
+* measure short-DGA recall separately
+
+Ideally, perform an unseen-family experiment by holding out a DGA family from training.
+
+Report:
+
+Overall:
+
+* accuracy
+* precision
+* recall
+* F1
+* FPR
+* FNR
+
+Short domains:
+
+* DGA recall
+* DGA FNR
+* legitimate false-positive rate
+
+QSnatch:
+
+* recall
+* precision
+* F1
+* FNR
+
+---
+
+## 9. CRITICAL: Do not contaminate the test set
+
+Do not train on the exact domains being used to demonstrate the fix.
+
+Create:
+
+TRAIN:
+verified short DGA samples from the same or multiple families
+
+VALIDATION:
+separate domains
+
+TEST:
+untouched domains
+
+DEMO:
+a separate verified list
+
+If exact QSnatch examples are used for the demo, do not put those exact strings in the training data.
+
+---
+
+## 10. Check for a preprocessing mismatch
+
+Verify that training and prediction use EXACTLY the same:
+
+* lowercase normalization
+* domain parsing
+* domain-length calculation
+* special-character handling
+* vowel/consonant calculation
+* entropy calculation
+* character transition calculation
+* TF-IDF preprocessing
+* feature ordering
+
+The prediction vector must have the same structure as the training vector.
+
+Expected combined shape:
+
+10,019 features.
+
+---
+
+## 11. Test BEFORE vs AFTER
+
+Create a reproducible test report.
+
+At minimum:
+
+### Known DGA
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+
+### Other verified DGA
+
+Use examples from multiple known DGA families.
+
+### Legitimate controls
+
+Use verified legitimate domains, including short and unusual-looking domains.
+
+For every test domain show:
+
+Domain | Expected | Prediction | Probability | Correct?
+
+Do NOT fake expected labels.
+
+---
+
+## 12. Probability / risk
+
+Do not simply map:
+
+DGA = High
+Legitimate = Low
+
+Use the model probability appropriately.
+
+If using `predict_proba()`, call it "model probability" unless it has actually been calibrated.
+
+If the model is uncertain, allow a Suspicious/Uncertain state rather than pretending every prediction is absolute.
+
+Example:
+
+DGA probability: 0.94
+→ High risk
+
+DGA probability: 0.57
+→ Suspicious / uncertain
+
+DGA probability: 0.08
+→ Low risk
+
+Document the thresholds.
+
+---
+
+## 13. DO NOT use online search as the ML decision
+
+Do not change the project into a Google/domain-search system.
+
+External threat intelligence can be a SECONDARY layer later.
+
+The core project remains:
+
+Domain
+→ feature extraction
+→ ML model
+→ DGA probability
+→ classification
+
+An unknown domain must NOT be considered legitimate merely because it has no online reputation record.
+
+---
+
+## 14. Final acceptance test
+
+The correction is NOT complete unless the system is able to correctly classify the verified QSnatch examples above OR you can provide a technically justified explanation backed by actual model evaluation for why the current architecture cannot generalize to them.
+
+The system should specifically demonstrate improvement on short DGA domains without introducing a hardcoded length/TLD rule.
+
+After completing the work, provide:
+
+1. Root cause of the failure.
+2. Whether the previous update actually retrained the model.
+3. Current training dataset statistics.
+4. Number of verified short-DGA samples added.
+5. DGA families represented.
+6. Before/after overall metrics.
+7. Before/after short-DGA metrics.
+8. QSnatch-specific metrics.
+9. Exact model artifact now loaded by the API.
+10. Exact files modified.
+11. Exact training command.
+12. Exact test command.
+13. Any remaining limitations.
+
+DO NOT say "fixed" unless you actually ran the five QSnatch test domains through the final API and verified the results.

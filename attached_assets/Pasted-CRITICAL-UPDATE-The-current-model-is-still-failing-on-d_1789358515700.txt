@@ -1,0 +1,343 @@
+CRITICAL UPDATE: The current model is still failing on documented DGA domains, including WORD-BASED DGA domains.
+
+I have independently verified that the following domains are documented Dridex DGA outputs:
+
+* clientalnothing.me
+* allowclientaxpalagent.me
+
+Cybereason's technical analysis of DGA variants explicitly lists both domains as examples of the Dridex DGA.
+
+The current detector returns:
+
+clientalnothing.me → Legitimate / Low Risk ❌
+allowclientaxpalagent.me → Legitimate / Low Risk ❌
+
+This means the problem is NOT ONLY short-domain bias.
+
+The model is failing on multiple DGA generation strategies.
+
+---
+
+# NEW REQUIREMENT: TEST DGA FAMILIES, NOT JUST DOMAIN LENGTH
+
+The project must be able to detect different DGA characteristics rather than learning a single shortcut such as:
+
+* long = DGA
+* short = Legitimate
+* random-looking = DGA
+* unusual TLD = DGA
+
+The following DGA categories must be represented in training/evaluation:
+
+### 1. Random-character DGA
+
+Examples:
+
+* Necurs
+* Ramnit
+* QakBot
+* Pykspa
+* Angler
+
+### 2. Short DGA
+
+Examples:
+
+* QSnatch
+
+### 3. Word-based DGA
+
+Examples:
+
+* Dridex
+* other documented dictionary/word-based DGA families
+
+### 4. Mixed word/character DGA
+
+Domains containing word fragments + random characters.
+
+### 5. Numeric/hexadecimal DGA
+
+Examples from documented DWORD-based DGA families.
+
+---
+
+# CRITICAL: DO NOT HARD-CODE THESE DOMAINS
+
+Do NOT add:
+
+if domain == "clientalnothing.me":
+return DGA
+
+Do NOT add:
+
+if ".me":
+return DGA
+
+Do NOT add:
+
+if short:
+return DGA
+
+Do NOT add any special-case rules for the examples.
+
+These domains are evaluation examples.
+
+The model must learn generalizable characteristics from DGA training data.
+
+---
+
+# 1. AUDIT THE CURRENT TRAINING DATA
+
+Determine whether the current training dataset contains:
+
+* word-based DGA domains
+* Dridex samples
+* QSnatch samples
+* Ramnit samples
+* QakBot samples
+* Necurs samples
+* other DGA families
+
+Report the number of domains from each family if family labels are available.
+
+If the current dataset has no family labels, determine whether a suitable source dataset with family labels can be incorporated.
+
+---
+
+# 2. ADD MULTIPLE DGA FAMILIES
+
+Use verified public DGA datasets or documented DGA family implementations.
+
+Do NOT generate random domains using ChatGPT.
+
+Do NOT label arbitrary strings as DGA.
+
+Use known DGA-family data.
+
+The training data should contain multiple fundamentally different DGA generation mechanisms.
+
+The goal is to prevent the model from learning:
+
+"DGA = long random string."
+
+---
+
+# 3. ADD WORD-BASED DGA DATA
+
+This is particularly important.
+
+The model must see DGA domains that contain recognizable English words or word fragments.
+
+Examples of the type of pattern we need:
+
+client + al + nothing
+allow + client + axp + al + agent
+
+The exact examples above should remain in evaluation/demo data rather than simply being copied into training.
+
+Use OTHER verified Dridex/word-based DGA samples for training.
+
+---
+
+# 4. ADD SHORT-DGA DATA
+
+Continue the short-domain correction using verified DGA data.
+
+Known QSnatch examples include:
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+
+Again, do not simply add these exact evaluation examples to training.
+
+Use other verified short DGA samples from the same family and other families.
+
+---
+
+# 5. KEEP LEGITIMATE HARD CASES
+
+The training and evaluation sets must contain legitimate domains that are:
+
+* short
+* random-looking
+* numeric
+* word-like
+* unusual TLDs
+* long
+* uncommon
+
+The detector must not simply learn:
+
+unusual = DGA
+
+or:
+
+word combination = DGA.
+
+---
+
+# 6. FEATURE ANALYSIS
+
+Analyze whether the current 19 handcrafted features are sufficient to distinguish:
+
+A. random DGA
+B. short DGA
+C. word-based DGA
+D. legitimate random-looking domains
+E. legitimate word-based domains
+
+Pay particular attention to:
+
+* character entropy
+* character transitions
+* n-gram distribution
+* vowel/consonant ratio
+* unique character ratio
+* digit ratio
+* domain length
+* character-level TF-IDF
+
+Do not remove existing features without evidence.
+
+---
+
+# 7. MODEL EVALUATION MUST BE FAMILY-AWARE
+
+Do NOT report only overall accuracy.
+
+Report:
+
+Overall:
+
+* accuracy
+* precision
+* recall
+* F1
+* FNR
+
+By DGA family/category:
+
+* QSnatch recall
+* Dridex recall
+* Ramnit recall
+* QakBot recall
+* Necurs recall
+* other available families
+
+By domain type:
+
+* short DGA recall
+* word-based DGA recall
+* random-character DGA recall
+* numeric/hex DGA recall
+
+This will show whether the model actually generalizes.
+
+---
+
+# 8. CREATE AN UNSEEN-FAMILY TEST
+
+If possible:
+
+Train on several DGA families.
+
+Hold out an entire DGA family.
+
+Do not train on it.
+
+Test on it.
+
+Report its recall/F1/FNR.
+
+This is much more meaningful than a random train/test split because our real problem is detecting previously unseen DGA behavior.
+
+---
+
+# 9. FINAL MANDATORY TESTS
+
+After retraining, run these through the FINAL API:
+
+### Short DGA
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+
+### Word-based DGA
+
+clientalnothing.me
+allowclientaxpalagent.me
+
+These are documented DGA examples and must NOT be silently labeled legitimate.
+
+Also test additional verified DGA examples from other families.
+
+Then test verified legitimate hard cases.
+
+Display:
+
+Domain | Expected | Prediction | Probability | Correct
+
+---
+
+# 10. VERY IMPORTANT: VERIFY THE ACTUAL API MODEL
+
+Do not assume that retraining succeeded.
+
+Verify:
+
+1. training completed
+2. model artifact changed
+3. vectorizer corresponds to the new training pipeline
+4. API loads the new model artifact
+5. API prediction uses the new model
+6. final API predictions were actually generated AFTER retraining
+
+Record the model artifact timestamp/hash if practical.
+
+---
+
+# 11. DO NOT OPTIMIZE ONLY FOR ACCURACY
+
+The purpose of this project is DGA detection.
+
+A model achieving 99% accuracy while missing an entire DGA family is not acceptable.
+
+Prioritize:
+
+1. DGA recall
+2. False-negative rate
+3. F1
+4. generalization across DGA families
+5. false-positive rate
+6. overall accuracy
+
+Document any trade-offs.
+
+---
+
+# 12. DO NOT CLAIM SUCCESS WITHOUT TESTING
+
+Do not tell me "the DGA detection has been improved" merely because the training script ran.
+
+The correction is considered successful only after the FINAL API is tested against:
+
+t2q2r.cf
+gc9nz.tk
+6zltf.rocks
+qkzccy.net
+07tvvc.com
+clientalnothing.me
+allowclientaxpalagent.me
+
+and the results are shown.
+
+If any remain classified as Legitimate, explain the actual model/data reason instead of adding a hardcoded exception.
+
+The goal is a genuinely generalizable DGA detector, not a demo-specific patch.

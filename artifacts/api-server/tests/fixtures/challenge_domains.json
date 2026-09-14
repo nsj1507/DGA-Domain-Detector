@@ -1,0 +1,58 @@
+{
+  "short_dga": [
+    {
+      "domain": "m4x8p.net",
+      "expected_label": 1
+    },
+    {
+      "domain": "x7k2q9.info",
+      "expected_label": 1
+    },
+    {
+      "domain": "zq9k.org",
+      "expected_label": 1
+    }
+  ],
+  "medium_dga": [
+    {
+      "domain": "q7x2m9k.org",
+      "expected_label": 1
+    },
+    {
+      "domain": "zq9k2v8m.net",
+      "expected_label": 1
+    },
+    {
+      "domain": "x7k2q9m4p.info",
+      "expected_label": 1
+    }
+  ],
+  "legitimate": [
+    {
+      "domain": "google.com",
+      "expected_label": 0
+    },
+    {
+      "domain": "wikipedia.org",
+      "expected_label": 0
+    },
+    {
+      "domain": "example.com",
+      "expected_label": 0
+    }
+  ],
+  "legitimate_short": [
+    {
+      "domain": "ai.com",
+      "expected_label": 0
+    },
+    {
+      "domain": "bbc.com",
+      "expected_label": 0
+    },
+    {
+      "domain": "x.com",
+      "expected_label": 0
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "test_source": "artifacts/api-server/ml/data/test.csv (unchanged)",
+  "length_definition": "length of the normalized domain before the final dot, matching the training/evaluation representation",
+  "before": {
+    "le_10": {
+      "dga_count": 1909,
+      "dga_recall": 0.9486642221058146,
+      "dga_false_negative_rate": 0.05133577789418542,
+      "legitimate_count": 5799,
+      "legitimate_false_positive_rate": 0.012415933781686497
+    },
+    "11_12": {
+      "dga_count": 606,
+      "dga_recall": 0.9752475247524752,
+      "dga_false_negative_rate": 0.024752475247524774,
+      "legitimate_count": 1417,
+      "legitimate_false_positive_rate": 0.008468595624558928
+    },
+    "13_15": {
+      "dga_count": 1632,
+      "dga_recall": 0.9852941176470589,
+      "dga_false_negative_rate": 0.014705882352941124,
+      "legitimate_count": 1343,
+      "legitimate_false_positive_rate": 0.012658227848101266
+    },
+    "gt_15": {
+      "dga_count": 5497,
+      "dga_recall": 0.9996361651810078,
+      "dga_false_negative_rate": 0.0003638348189921592,
+      "legitimate_count": 1086,
+      "legitimate_false_positive_rate": 0.006445672191528545
+    }
+  },
+  "after": {
+    "le_10": {
+      "dga_count": 1909,
+      "dga_recall": 0.9554740701938188,
+      "dga_false_negative_rate": 0.0445259298061812,
+      "legitimate_count": 5799,
+      "legitimate_false_positive_rate": 0.023452319365407828
+    },
+    "11_12": {
+      "dga_count": 606,
+      "dga_recall": 0.971947194719472,
+      "dga_false_negative_rate": 0.028052805280528004,
+      "legitimate_count": 1417,
+      "legitimate_false_positive_rate": 0.015525758645024701
+    },
+    "13_15": {
+      "dga_count": 1632,
+      "dga_recall": 0.9846813725490197,
+      "dga_false_negative_rate": 0.015318627450980338,
+      "legitimate_count": 1343,
+      "legitimate_false_positive_rate": 0.01563663440059568
+    },
+    "gt_15": {
+      "dga_count": 5497,
+      "dga_recall": 0.9994542477715117,
+      "dga_false_negative_rate": 0.0005457522284882943,
+      "legitimate_count": 1086,
+      "legitimate_false_positive_rate": 0.006445672191528545
+    }
+  }
+}

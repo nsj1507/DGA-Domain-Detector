@@ -1,0 +1,43 @@
+{
+  "source_url": "https://github.com/ExtraHop/DGA-Detection-Training-Dataset",
+  "source_data_url": "https://media.githubusercontent.com/media/ExtraHop/DGA-Detection-Training-Dataset/main/dga-training-data-encoded.json.gz",
+  "source_sha256": "536c3292c95f405219ee6851fc89d4cb6c36406fe2c0bb89a950bce22aa5d8ab",
+  "compressed_bytes": 170860023,
+  "source_rows_seen": 16246011,
+  "malformed_rows": 5,
+  "source_threat_counts": {
+    "dga": 8261879,
+    "benign": 7982092
+  },
+  "dga_min_length": 3,
+  "dga_median_length": 14,
+  "dga_max_length": 46,
+  "dga_length_counts": {
+    "le_10": 2203521,
+    "11_12": 1282736,
+    "13_15": 1387090
+  },
+  "supplemental_rows": 3000,
+  "supplemental_rows_by_band": {
+    "dga_le_10": 1000,
+    "dga_11_12": 1000,
+    "dga_13_15": 1000
+  },
+  "challenge_rows": 100,
+  "challenge_rows_by_category": {
+    "dga_short_le_10": 20,
+    "dga_short_11_15": 20,
+    "dga_long_gt_15": 20,
+    "benign_short_le_10": 20,
+    "benign_long_gt_15": 20
+  },
+  "family_labels_available": false,
+  "tld_adaptation": "Source contains registered labels without TLDs; each unique source label was deterministically suffixed with one of com/net/org/info for this project representation.",
+  "leakage_checks": {
+    "supplemental_vs_train": 0,
+    "supplemental_vs_test": 0,
+    "challenge_vs_train": 0,
+    "challenge_vs_test": 0,
+    "challenge_vs_supplemental": 0
+  }
+}

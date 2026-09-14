@@ -8,53 +8,84 @@
     "0": "Legitimate",
     "1": "Malicious"
   },
-  "training_rows": 81155,
-  "synthetic_dga_rows": 4000,
+  "training_rows": 80155,
+  "verified_short_dga_rows": 3000,
+  "selection_policy": "Highest selection score among models exposing predict_proba",
+  "length_metrics": {
+    "le_10": {
+      "dga_count": 1909,
+      "dga_recall": 0.9554740701938188,
+      "dga_false_negative_rate": 0.0445259298061812,
+      "legitimate_count": 5799,
+      "legitimate_false_positive_rate": 0.023452319365407828
+    },
+    "11_12": {
+      "dga_count": 606,
+      "dga_recall": 0.971947194719472,
+      "dga_false_negative_rate": 0.028052805280528004,
+      "legitimate_count": 1417,
+      "legitimate_false_positive_rate": 0.015525758645024701
+    },
+    "13_15": {
+      "dga_count": 1632,
+      "dga_recall": 0.9846813725490197,
+      "dga_false_negative_rate": 0.015318627450980338,
+      "legitimate_count": 1343,
+      "legitimate_false_positive_rate": 0.01563663440059568
+    },
+    "gt_15": {
+      "dga_count": 5497,
+      "dga_recall": 0.9994542477715117,
+      "dga_false_negative_rate": 0.0005457522284882943,
+      "legitimate_count": 1086,
+      "legitimate_false_positive_rate": 0.006445672191528545
+    }
+  },
   "results": {
     "RandomForest": {
-      "accuracy": 0.976878013375499,
-      "precision": 0.9739282769991756,
-      "recall": 0.9799875570302778,
-      "f1_score": 0.9769485218110399,
-      "false_positive_rate": 0.02623120787973043,
-      "false_negative_rate": 0.020012442969722107,
-      "true_negatives": 9392,
-      "false_positives": 253,
-      "false_negatives": 193,
-      "true_positives": 9451,
-      "inference_time_sec": 0.3053,
-      "selection_score": 0.9773930939679234,
-      "train_time_sec": 46.01
+      "accuracy": 0.9783296179169475,
+      "precision": 0.9737112343397002,
+      "recall": 0.9832019908751556,
+      "f1_score": 0.978433598183882,
+      "false_positive_rate": 0.02654224987039917,
+      "false_negative_rate": 0.016798009124844464,
+      "true_negatives": 9389,
+      "false_positives": 256,
+      "false_negatives": 162,
+      "true_positives": 9482,
+      "inference_time_sec": 0.3202,
+      "selection_score": 0.9791349653612499,
+      "train_time_sec": 45.71
     },
     "LinearSVM": {
-      "accuracy": 0.9809736119031572,
-      "precision": 0.9756948005332786,
-      "recall": 0.9865201161343841,
-      "f1_score": 0.9810775973188967,
-      "false_positive_rate": 0.024572317262830483,
-      "false_negative_rate": 0.013479883865615928,
-      "true_negatives": 9408,
-      "false_positives": 237,
-      "false_negatives": 130,
-      "true_positives": 9514,
-      "inference_time_sec": 0.0029,
-      "selection_score": 0.9818821363625522,
-      "train_time_sec": 1.53
+      "accuracy": 0.9850692104308155,
+      "precision": 0.9823674984532893,
+      "recall": 0.9878681045209456,
+      "f1_score": 0.9851101230482887,
+      "false_positive_rate": 0.017729393468118197,
+      "false_negative_rate": 0.012131895479054335,
+      "true_negatives": 9474,
+      "false_positives": 171,
+      "false_negatives": 117,
+      "true_positives": 9527,
+      "inference_time_sec": 0.0025,
+      "selection_score": 0.9855179412773413,
+      "train_time_sec": 1.74
     },
     "NeuralNetwork": {
-      "accuracy": 0.9815957281352066,
-      "precision": 0.9760172184072973,
-      "recall": 0.9874533388635421,
-      "f1_score": 0.9817019741250451,
-      "false_positive_rate": 0.024261275272161743,
-      "false_negative_rate": 0.012546661136457901,
-      "true_negatives": 9411,
-      "false_positives": 234,
-      "false_negatives": 121,
-      "true_positives": 9523,
-      "inference_time_sec": 0.0716,
-      "selection_score": 0.9825534209909643,
-      "train_time_sec": 89.31
+      "accuracy": 0.983617605889367,
+      "precision": 0.9808247422680413,
+      "recall": 0.9865201161343841,
+      "f1_score": 0.9836641852770885,
+      "false_positive_rate": 0.019284603421461897,
+      "false_negative_rate": 0.013479883865615928,
+      "true_negatives": 9459,
+      "false_positives": 186,
+      "false_negatives": 130,
+      "true_positives": 9514,
+      "inference_time_sec": 0.1547,
+      "selection_score": 0.9840857322053758,
+      "train_time_sec": 142.52
     }
   }
 }

@@ -8,6 +8,7 @@
     "build": "../../.pythonlibs/bin/python -m compileall backend ml",
     "start": "../../.pythonlibs/bin/uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8080}",
     "train-model": "../../.pythonlibs/bin/python ml/train_combined.py",
+    "evaluate-challenge": "../../.pythonlibs/bin/python ml/evaluate_challenge.py",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

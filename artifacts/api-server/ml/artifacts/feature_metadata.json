@@ -38,27 +38,11 @@
     "0": "Legitimate",
     "1": "Malicious"
   },
-  "synthetic_dga": {
+  "selection_policy": "Highest selection score among models exposing predict_proba",
+  "verified_short_dga": {
     "enabled": true,
-    "seed": 20260910,
-    "rows_per_length_band": 1000,
-    "length_bands": [
-      [
-        4,
-        6
-      ],
-      [
-        7,
-        10
-      ],
-      [
-        11,
-        15
-      ],
-      [
-        16,
-        25
-      ]
-    ]
+    "rows": 3000,
+    "dataset": "ExtraHop/DGA-Detection-Training-Dataset",
+    "manifest": "verified_dga_source_manifest.json"
   }
 }

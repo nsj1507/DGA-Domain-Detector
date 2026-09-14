@@ -1,0 +1,291 @@
+We need to fix the current DGA Domain Detector based on a specific failure observed during our project review.
+
+The professor tested short/random-looking DGA-like domains and several were classified as Legitimate.
+
+Our current dataset has a strong domain-length imbalance: legitimate domains contain many short domains, while DGA domains are disproportionately longer. Therefore the ML model may have learned domain length as a shortcut.
+
+DO NOT simply add a hardcoded rule such as "short domain = DGA" or "short domain = Legitimate."
+
+The model must learn the distinction from real training data.
+
+## STEP 1 — Inspect the existing project
+
+Inspect the existing ML pipeline and identify:
+
+* training dataset
+* test dataset
+* feature extraction
+* TF-IDF vectorizer
+* model training
+* model selection
+* prediction API
+* frontend prediction display
+
+Do not rebuild the project from scratch.
+
+Preserve the existing architecture unless a change is technically necessary.
+
+The current pipeline uses:
+
+19 handcrafted lexical/statistical features
+
+*
+
+character-level TF-IDF with:
+
+* analyzer = "char"
+* ngram_range = (2,4)
+* min_df = 2
+* max_features = 10000
+
+Combined feature size should remain approximately:
+
+19 + 10,000 = 10,019 features.
+
+## STEP 2 — Find and remove any hardcoded length classification
+
+Search the entire codebase for logic such as:
+
+* len(domain) < ...
+* domain_length < ...
+* short domain => Legitimate
+* short domain => DGA
+* minimum length classification
+* frontend special cases based on length
+
+If such logic directly determines the final prediction, remove it.
+
+DO NOT remove domain_length from the ML feature set.
+
+If no hardcoded rule exists, explicitly report that and proceed to dataset-bias correction.
+
+## STEP 3 — Obtain REAL DGA training data
+
+Use a reputable/public DGA source.
+
+Preferred sources:
+
+1. ExtraHop DGA Detection Training Dataset:
+   https://github.com/ExtraHop/DGA-Detection-Training-Dataset
+
+2. DGA Collection:
+   https://github.com/pchaigno/dga-collection
+
+3. AndreyAeva DGA dataset:
+   https://github.com/andrewaeva/dga
+
+Do NOT use ChatGPT-generated random strings as ground-truth DGA data.
+
+Do NOT label arbitrary random domains as DGA.
+
+The domains must originate from known DGA datasets or documented DGA algorithms.
+
+## STEP 4 — Build a short-DGA subset
+
+From the verified DGA data, identify domains whose relevant registered domain label is short.
+
+Create a short-DGA subset with emphasis on:
+
+* <= 10 characters
+* 11–12 characters
+* 13–15 characters
+
+Be careful about TLDs.
+
+For example, calculate length consistently using the same representation already used by the existing feature extraction code.
+
+Do NOT accidentally count `.com`, `.net`, etc. differently between training and inference.
+
+Report:
+
+* number of short DGA domains found
+* minimum DGA length
+* median DGA length
+* number <= 10
+* number 11–12
+* number 13–15
+* DGA families represented
+
+## STEP 5 — Add short DGA samples to TRAINING DATA
+
+Add verified short DGA samples to the TRAINING dataset.
+
+Do NOT modify the existing TEST dataset.
+
+Do NOT allow duplicates between train and test.
+
+Do NOT duplicate the same domain multiple times merely to increase the count.
+
+Keep the class distribution reasonably balanced.
+
+Also preserve family diversity.
+
+If possible, include short examples from multiple DGA families instead of taking all short examples from a single family.
+
+## STEP 6 — Avoid data leakage
+
+Before training:
+
+1. Remove exact duplicates.
+2. Check train/test overlap.
+3. Ensure newly added domains do not occur in test.csv.
+4. Fit TF-IDF only on training data.
+5. Never use test labels for model training or model selection.
+
+If possible, also record the DGA family of each malicious sample.
+
+## STEP 7 — Retrain existing models
+
+Retrain:
+
+* Random Forest
+* Linear SVM
+* Neural Network / MLP
+
+using the corrected training data.
+
+Keep the existing feature extraction pipeline unless a genuine bug is discovered.
+
+Evaluate:
+
+* Accuracy
+* Precision
+* Recall
+* F1
+* False Positive Rate
+* False Negative Rate
+* Confusion Matrix
+
+## STEP 8 — Add dedicated SHORT-DOMAIN evaluation
+
+This is extremely important.
+
+Create a separate evaluation report for domains with:
+
+A. <= 10 characters
+B. 11–12 characters
+C. 13–15 characters
+D. >15 characters
+
+For each category report:
+
+* number of DGA domains
+* DGA recall
+* DGA false-negative rate
+* legitimate false-positive rate
+
+We specifically need to know whether adding short DGA samples actually improves short-DGA detection.
+
+DO NOT judge the improvement only by overall accuracy.
+
+## STEP 9 — Test on DGA families not used for training
+
+If the source data provides DGA family labels, perform an additional experiment:
+
+Hold out at least one DGA family from training and evaluate the trained model on that family.
+
+This is important because our professor's test effectively exposed the possibility of poor generalization to unfamiliar DGA patterns.
+
+Report:
+
+* family held out
+* number of domains
+* recall
+* F1
+* false-negative rate
+
+Clearly label this as an unseen-family/generalization experiment.
+
+## STEP 10 — Preserve legitimate short domains
+
+Do NOT make the model classify all short domains as DGA.
+
+Include legitimate short domains in training and evaluation.
+
+Examples should include:
+
+* short `.com`
+* short country-code domains
+* short modern TLDs
+* numeric/short legitimate domains
+
+The model must distinguish short legitimate domains from short DGA domains.
+
+## STEP 11 — Compare BEFORE vs AFTER
+
+Create a clear table:
+
+```
+                BEFORE       AFTER
+```
+
+Overall accuracy       ?            ?
+DGA precision          ?            ?
+DGA recall             ?            ?
+DGA F1                 ?            ?
+DGA FNR                ?            ?
+Short DGA recall       ?            ?
+Short DGA FNR          ?            ?
+Unseen-family recall   ?            ?
+
+Do not hide a decrease in overall accuracy if the new model substantially improves detection of previously missed DGA cases.
+
+## STEP 12 — Test actual domains
+
+Create a reproducible test file containing:
+
+* verified legitimate short domains
+* verified legitimate long domains
+* verified short DGA domains
+* verified long DGA domains
+* word-based/pseudo-word DGA domains
+* random-looking DGA domains
+* domains from a DGA family not used during training
+
+Run the final model on all of them.
+
+Show the prediction and model probability for every sample.
+
+## STEP 13 — Do NOT use online search as the primary detector
+
+Do NOT replace the ML detector with Google/Bing/domain search.
+
+The project is fundamentally a DGA detection system.
+
+External threat-intelligence lookup may be added later as a secondary validation layer, but it must NOT replace the ML-based DGA detection.
+
+An unknown domain must NOT automatically be considered legitimate merely because no online record exists.
+
+## STEP 14 — Preserve explainability
+
+The frontend should explain why a domain is considered suspicious using actual features/model information.
+
+Do NOT invent explanations.
+
+If the MLP cannot provide reliable feature-level explanations, clearly label the result as model-based probability rather than pretending that individual feature contributions are known.
+
+## STEP 15 — Final output
+
+After completing the changes, provide:
+
+1. Root cause of the short-DGA failure.
+2. Whether a hardcoded length rule existed.
+3. Dataset source used.
+4. Number of DGA samples added.
+5. Number of short DGA samples added.
+6. DGA families represented.
+7. Before/after metrics.
+8. Short-domain metrics.
+9. Unseen-family metrics.
+10. Files modified.
+11. Training command.
+12. Prediction/run command.
+13. Any remaining limitations.
+
+Do not fabricate results.
+
+If the requested dataset cannot be downloaded or processed in the current environment, STOP and clearly state what is unavailable instead of pretending the retraining happened.
+
+The final objective is:
+
+A model that can detect DGA domains based on learned lexical/statistical characteristics, including short DGA domains, without relying on a hardcoded domain-length rule.

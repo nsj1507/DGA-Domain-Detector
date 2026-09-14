@@ -9,7 +9,6 @@ the same feature order.
 from __future__ import annotations
 
 import json
-import random
 import time
 import warnings
 from pathlib import Path
@@ -26,9 +25,9 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import LinearSVC
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 from feature_extraction import (
     FEATURE_NAMES,
@@ -47,72 +46,52 @@ METADATA_FILE = ARTIFACT_DIR / "feature_metadata.json"
 
 RANDOM_STATE = 42
 NGRAM_FEATURE_COUNT = 10_000
-SYNTHETIC_DGA_SEED = 20260910
-SYNTHETIC_DGA_PER_LENGTH_BAND = 1_000
-DGA_LENGTH_BANDS = ((4, 6), (7, 10), (11, 15), (16, 25))
 LABEL_MAPPING = {"0": "Legitimate", "1": "Malicious"}
+SUPPLEMENTAL_FILE = DATA_DIR / "verified_short_dga.csv"
 
 
-def generate_synthetic_dga_domains(
-    per_length_band: int = SYNTHETIC_DGA_PER_LENGTH_BAND,
-    seed: int = SYNTHETIC_DGA_SEED,
-) -> list[str]:
-    """Generate deterministic DGA-like training rows without domain allowlists.
-
-    These rows expand the positive class into lengths absent from the source
-    data. The generator intentionally mixes letters and digits so the model
-    cannot reduce the task to a single "contains a digit" rule.
-    """
-    rng = random.Random(seed)
-    tlds = ("com", "org", "net", "info")
-    letters = "abcdefghijklmnopqrstuvwxyz"
-    consonants = "bcdfghjklmnpqrstvwxyz"
-    digits = "0123456789"
-    generated: list[str] = []
-    seen: set[str] = set()
-
-    for minimum, maximum in DGA_LENGTH_BANDS:
-        while sum(
-            minimum <= len(domain.rsplit(".", 1)[0]) <= maximum
-            for domain in generated
-        ) < per_length_band:
-            length = rng.randint(minimum, maximum)
-            characters: list[str] = []
-            include_digit = rng.random() < 0.65
-            for _ in range(length):
-                roll = rng.random()
-                if roll < 0.20:
-                    character = rng.choice(digits)
-                elif roll < 0.78:
-                    character = rng.choice(consonants)
-                else:
-                    character = rng.choice(letters)
-                characters.append(character)
-            if include_digit and not any(character.isdigit() for character in characters):
-                characters[rng.randrange(length)] = rng.choice(digits)
-            domain = f"{''.join(characters)}.{rng.choice(tlds)}"
-            if domain not in seen:
-                seen.add(domain)
-                generated.append(domain)
-    return generated
-
-
-def augment_training_data(
+def load_training_data(
     train: pd.DataFrame,
-) -> tuple[pd.Series, np.ndarray, int]:
-    """Add generated positive examples only to cover missing short DGA lengths."""
-    synthetic_domains = generate_synthetic_dga_domains()
-    domains = pd.concat(
-        [train["domain"], pd.Series(synthetic_domains, dtype="string")],
-        ignore_index=True,
-    )
-    labels = np.concatenate(
-        [
-            train["label"].astype(int).to_numpy(),
-            np.ones(len(synthetic_domains), dtype=int),
-        ]
-    )
-    return domains, labels, len(synthetic_domains)
+    test: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load verified supplemental rows while enforcing leakage invariants."""
+    if not SUPPLEMENTAL_FILE.exists():
+        raise FileNotFoundError(
+            f"Verified supplemental data is required at {SUPPLEMENTAL_FILE}"
+        )
+    supplemental = pd.read_csv(SUPPLEMENTAL_FILE)
+    required_columns = {
+        "domain",
+        "label",
+        "source_dataset",
+        "source_threat",
+        "source_label",
+        "source_length",
+        "length_band",
+    }
+    if not required_columns.issubset(supplemental.columns):
+        raise ValueError(
+            f"Supplemental data is missing columns: "
+            f"{sorted(required_columns - set(supplemental.columns))}"
+        )
+
+    train_rows = train[["domain", "label"]].copy()
+    supplemental_rows = supplemental[["domain", "label"]].copy()
+    combined = pd.concat([train_rows, supplemental_rows], ignore_index=True)
+    combined["domain"] = combined["domain"].astype(str).str.lower().str.strip()
+    combined["label"] = combined["label"].astype(int)
+    normalized_test = test["domain"].astype(str).str.lower().str.strip()
+
+    if set(combined["label"].unique()) != {0, 1}:
+        raise ValueError("Combined training data must contain labels 0 and 1.")
+    if combined["domain"].duplicated().any():
+        raise ValueError("Duplicate domains exist in the combined training data.")
+    if set(combined["domain"]) & set(normalized_test):
+        raise ValueError("Training and test domains overlap after normalization.")
+    if not set(supplemental["label"].astype(int).unique()) == {1}:
+        raise ValueError("Verified supplemental rows must all be labeled DGA (1).")
+
+    return combined, supplemental
 
 
 def handcrafted_matrix(domains: pd.Series) -> np.ndarray:
@@ -131,6 +110,52 @@ def build_features(domains: pd.Series, vectorizer) -> sp.csr_matrix:
             f"Expected {NGRAM_FEATURE_COUNT} n-gram features, got {ngrams.shape[1]}"
         )
     return sp.hstack([handcrafted, ngrams], format="csr")
+
+
+def registered_label_length(domain: str) -> int:
+    """Use the same host-label convention for all evaluation buckets."""
+    return len(str(domain).lower().strip().rsplit(".", 1)[0])
+
+
+def evaluate_length_bands(
+    domains: pd.Series,
+    labels: np.ndarray,
+    predictions: np.ndarray,
+) -> dict[str, dict[str, float | int | None]]:
+    """Report DGA recall/FNR and benign FPR by registered-label length."""
+    lengths = domains.map(registered_label_length).to_numpy()
+    bands = {
+        "le_10": lengths <= 10,
+        "11_12": (lengths >= 11) & (lengths <= 12),
+        "13_15": (lengths >= 13) & (lengths <= 15),
+        "gt_15": lengths > 15,
+    }
+    report: dict[str, dict[str, float | int | None]] = {}
+    for name, band_mask in bands.items():
+        dga_mask = band_mask & (labels == 1)
+        benign_mask = band_mask & (labels == 0)
+        dga_count = int(dga_mask.sum())
+        benign_count = int(benign_mask.sum())
+        dga_recall = (
+            float((predictions[dga_mask] == 1).mean())
+            if dga_count
+            else None
+        )
+        benign_fpr = (
+            float((predictions[benign_mask] == 1).mean())
+            if benign_count
+            else None
+        )
+        report[name] = {
+            "dga_count": dga_count,
+            "dga_recall": dga_recall,
+            "dga_false_negative_rate": (
+                float(1.0 - dga_recall) if dga_recall is not None else None
+            ),
+            "legitimate_count": benign_count,
+            "legitimate_false_positive_rate": benign_fpr,
+        }
+    return report
 
 
 def evaluate(name: str, model, X_test, y_test) -> dict:
@@ -167,14 +192,15 @@ def evaluate(name: str, model, X_test, y_test) -> dict:
 
 
 def main() -> None:
-    train = pd.read_csv(DATA_DIR / "train.csv")
+    raw_train = pd.read_csv(DATA_DIR / "train.csv")
     test = pd.read_csv(DATA_DIR / "test.csv")
-    if list(train.columns) != ["domain", "label"] or list(test.columns) != [
+    if list(raw_train.columns) != ["domain", "label"] or list(test.columns) != [
         "domain",
         "label",
     ]:
         raise ValueError("Training and test CSVs must contain domain,label columns")
 
+    train, supplemental = load_training_data(raw_train, test)
     train_labels = set(train["label"].astype(int).unique())
     test_labels = set(test["label"].astype(int).unique())
     if train_labels != {0, 1} or test_labels != {0, 1}:
@@ -182,7 +208,8 @@ def main() -> None:
             f"Expected binary labels {{0, 1}}, got train={train_labels}, test={test_labels}"
         )
 
-    training_domains, y_train, synthetic_count = augment_training_data(train)
+    training_domains = train["domain"]
+    y_train = train["label"].astype(int).to_numpy()
     vectorizer = TfidfVectorizer(
         analyzer="char",
         ngram_range=(2, 4),
@@ -203,7 +230,7 @@ def main() -> None:
         )
     print(
         f"Train shape: {X_train.shape}; test shape: {X_test.shape}; "
-        f"synthetic DGA rows: {synthetic_count}"
+        f"verified supplemental DGA rows: {len(supplemental)}"
     )
 
     models = {
@@ -238,8 +265,15 @@ def main() -> None:
         metrics["train_time_sec"] = round(time.perf_counter() - started, 2)
         results[name] = metrics
 
+    probability_candidates = [
+        candidate
+        for candidate, model in trained_models.items()
+        if hasattr(model, "predict_proba")
+    ]
+    if not probability_candidates:
+        raise RuntimeError("At least one trained model must expose predict_proba().")
     best_name = max(
-        results,
+        probability_candidates,
         key=lambda candidate: (
             results[candidate]["selection_score"],
             results[candidate]["recall"],
@@ -259,7 +293,15 @@ def main() -> None:
                 "used_handcrafted_features": True,
                 "label_mapping": LABEL_MAPPING,
                 "training_rows": int(len(training_domains)),
-                "synthetic_dga_rows": synthetic_count,
+                "verified_short_dga_rows": int(len(supplemental)),
+                "selection_policy": (
+                    "Highest selection score among models exposing predict_proba"
+                ),
+                "length_metrics": evaluate_length_bands(
+                    test["domain"],
+                    y_test,
+                    best_model.predict(X_test),
+                ),
                 "results": results,
             },
             handle,
@@ -281,11 +323,14 @@ def main() -> None:
                 "model_name": best_name,
                 "feature_count": expected_feature_count,
                 "label_mapping": LABEL_MAPPING,
-                "synthetic_dga": {
+                "selection_policy": (
+                    "Highest selection score among models exposing predict_proba"
+                ),
+                "verified_short_dga": {
                     "enabled": True,
-                    "seed": SYNTHETIC_DGA_SEED,
-                    "rows_per_length_band": SYNTHETIC_DGA_PER_LENGTH_BAND,
-                    "length_bands": [list(band) for band in DGA_LENGTH_BANDS],
+                    "rows": int(len(supplemental)),
+                    "dataset": "ExtraHop/DGA-Detection-Training-Dataset",
+                    "manifest": "verified_dga_source_manifest.json",
                 },
             },
             handle,
